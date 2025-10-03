@@ -3,39 +3,37 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Avatar Demo — Click-Safe</title>
-    <!-- Silence favicon 404 -->
+    <title>Avatar — Tap to Start</title>
+    <!-- Quiet the favicon 404 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>">
     <style>
       :root { --w: 420px; }
       * { box-sizing: border-box; }
       body {
         font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-        background:#0f1115; color:#eaeef5; display:flex; justify-content:center; padding:16px;
+        background:#0f1115; color:#eaeef5; display:flex; justify-content:center; align-items:flex-start;
+        padding:16px; min-height:100vh;
       }
-      #app { width:min(100%, var(--w)); position: relative; z-index: 0; }
+      #app { width:min(100%, var(--w)); }
 
       #stage {
-        width:100%; aspect-ratio:9/16; background:#161b22; border-radius:16px;
-        overflow:hidden; position:relative; box-shadow:0 8px 30px rgba(0,0,0,.35);
+        width:100%; aspect-ratio:9/16; background:#161b22; border-radius:16px; overflow:hidden;
+        position:relative; box-shadow:0 8px 30px rgba(0,0,0,.35);
       }
 
-      /* Fill stage */
-      #avatarVideo, #avatarCanvas { position:absolute; inset:0; }
+      /* Raw video fills the stage and is above everything */
+      #avatarVideo { position:absolute; inset:0; z-index:2; background:#000; }
 
-      /* Make raw video visible; keep canvas hidden while debugging */
-      #avatarVideo { opacity:1 !important; z-index:2; }
-      #avatarCanvas { display:none; z-index:1; pointer-events:none; }
-
-      #controls {
-        margin-top:10px; display:flex; gap:8px; position: relative; z-index: 10;
-        pointer-events: auto;
+      /* Full-screen overlay inside stage: guarantees a valid user gesture */
+      #tapOverlay {
+        position:absolute; inset:0; z-index:3; background:rgba(0,0,0,.55);
+        display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none;
       }
-      button {
-        padding:10px 12px; border-radius:10px; border:1px solid #2a2f3a;
-        background:#151a28; color:#eaeef5; cursor:pointer;
+      #tapOverlay .pill {
+        background:#1f2937; border:1px solid #334155; color:#eaeef5; padding:12px 16px; border-radius:999px;
+        box-shadow:0 6px 20px rgba(0,0,0,.35); font-weight:600;
       }
-      button:hover { background:#1c2336; }
+      #tapOverlay.hidden { display:none; }
 
       #banner {
         display:none; margin-top:10px; padding:10px; border-radius:10px;
@@ -52,28 +50,21 @@
   </head>
   <body>
     <div id="app">
-      <h1>Avatar Demo — Click-Safe</h1>
-      <p style="opacity:.75;font-size:12px;margin-top:-6px">
-        Click Start once. If the button still doesn’t react, open DevTools and run <code>window._start()</code>.
-      </p>
+      <h1 style="margin:0 0 8px 0;">Avatar — Tap to Start</h1>
 
       <div id="stage">
         <!-- IMPORTANT: no "muted" attribute -->
         <video id="avatarVideo" playsinline autoplay></video>
-        <canvas id="avatarCanvas"></canvas>
-      </div>
 
-      <div id="controls">
-        <!-- Inline onclick: guaranteed to fire even if listeners are blocked -->
-        <button id="sessionFab" onclick="window._start()">▶ Start</button>
-        <button id="resetBtn"   onclick="window._stop()">■ Stop</button>
+        <!-- One simple overlay to get a user-gesture -->
+        <div id="tapOverlay"><div class="pill">▶ Tap to start</div></div>
       </div>
 
       <div id="banner"></div>
       <div id="log"></div>
     </div>
 
-    <!-- Vite will rewrite this to /assets/*.js in production build -->
+    <!-- Vite will rewrite this in prod to /assets/*.js -->
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
