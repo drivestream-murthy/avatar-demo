@@ -1,5 +1,11 @@
-// Use NAMED imports only. If you change this line, it will break.
-import { StreamingAvatar, StreamingEvents, TaskType, AvatarQuality } from "@heygen/streaming-avatar";
+// BEFORE (causes your error with some versions):
+// import { StreamingAvatar, StreamingEvents, TaskType, AvatarQuality } from "@heygen/streaming-avatar";
+
+// AFTER (works across versions that default-export the class):
+import StreamingAvatar, { StreamingEvents, TaskType, AvatarQuality } from "@heygen/streaming-avatar";
+
+
+
 
 /* DOM */
 const startBtn = document.getElementById("startBtn");
