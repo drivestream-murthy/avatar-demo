@@ -1,4 +1,4 @@
-/* ===== Robust start: logs every click, inline + listener handlers, dynamic SDK import ===== */
+/* ===== Robust start: multi-path click, local+CDN SDK import, strong logs ===== */
 
 /* DOM */
 const banner   = document.getElementById("banner");
@@ -42,15 +42,23 @@ async function unlockAudioOnce(){
 let avatar = null, sid = null, active = false;
 let StreamingAvatarClass, StreamingEvents, TaskType, AvatarQuality;
 
-/* Dynamic SDK import (works with default or named exports) */
+/* Dynamic SDK import: try local package first, then CDN fallback */
 async function loadSDK(){
   if (StreamingAvatarClass) return;
-  const mod = await import("@heygen/streaming-avatar");
+  let mod = null;
+  try {
+    log("Importing SDK (local) …");
+    mod = await import("@heygen/streaming-avatar");
+  } catch (e) {
+    log("Local import failed, trying CDN …", e?.message || e);
+    mod = await import("https://cdn.jsdelivr.net/npm/@heygen/streaming-avatar/+esm");
+  }
   StreamingAvatarClass = mod.StreamingAvatar || mod.default;
   StreamingEvents = mod.StreamingEvents || mod.default?.StreamingEvents || {};
   TaskType = mod.TaskType || mod.default?.TaskType || { REPEAT: "REPEAT" };
   AvatarQuality = mod.AvatarQuality || mod.default?.AvatarQuality || { Medium: "medium", High: "high", Low: "low" };
   if (!StreamingAvatarClass) throw new Error("Could not resolve StreamingAvatar class from SDK");
+  log("SDK resolved.");
 }
 
 /* Start/Stop */
@@ -71,7 +79,8 @@ async function startSession(){
       if (!ready) showError("No STREAM_READY within 10s. Check autoplay, credits, or firewall.");
     }, 10000);
 
-    avatar.on?.(StreamingEvents?.STREAM_READY || "STREAM_READY", async (ev)=>{
+    const onReadyEvt = (StreamingEvents && (StreamingEvents.STREAM_READY || StreamingEvents.stream_ready)) || "STREAM_READY";
+    avatar.on?.(onReadyEvt, async (ev)=>{
       ready = true; clearTimeout(timer);
       log("STREAM_READY");
       const stream = ev?.detail?.stream || ev?.detail || ev?.stream;
@@ -146,9 +155,19 @@ async function stopSession(){
 if (startBtn) startBtn.addEventListener("click", startSession);
 if (stopBtn)  stopBtn.addEventListener("click",  stopSession);
 
-/* Expose console helpers (so you can run them even if clicks are swallowed) */
+/* Global helpers so you can start from console even if button is blocked */
 window._start = startSession;
 window._stop  = stopSession;
+
+/* Global “first click anywhere” fallback to ensure a user gesture fires start */
+(function bindGlobalFirstGesture(){
+  const once = async (e) => {
+    document.removeEventListener("pointerdown", once, true);
+    log("global pointerdown → start");
+    try { await startSession(); } catch {}
+  };
+  document.addEventListener("pointerdown", once, true);
+})();
 
 /* Boot */
 log("Loaded. Click Start once or run window._start().");
