@@ -11,6 +11,12 @@
       #app { width:min(100%, var(--w)); }
       #stage { width:100%; aspect-ratio:9/16; background:#161b22; border-radius:16px; overflow:hidden; position:relative; box-shadow:0 8px 30px rgba(0,0,0,.35); }
       #avatarVideo, #avatarCanvas { position:absolute; inset:0; }
+      /* Force the video to be visible above the canvas */
+#avatarVideo { opacity: 1 !important; z-index: 2; }
+
+/* Temporarily hide the canvas to rule it out */
+#avatarCanvas { display: none; z-index: 1; pointer-events: none; }
+
       #controls { margin-top:10px; display:flex; gap:8px; }
       button { padding:10px 12px; border-radius:10px; border:1px solid #2a2f3a; background:#151a28; color:#eaeef5; cursor:pointer; }
       button:hover { background:#1c2336; }
