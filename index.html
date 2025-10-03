@@ -20,10 +20,10 @@
         overflow:hidden; position:relative; box-shadow:0 8px 30px rgba(0,0,0,.35);
       }
 
-      /* Both elements fill the stage */
+      /* Fill stage */
       #avatarVideo, #avatarCanvas { position:absolute; inset:0; }
 
-      /* Force raw video visible; hide canvas temporarily so it can't cover clicks */
+      /* Make raw video visible; keep canvas hidden while debugging */
       #avatarVideo { opacity:1 !important; z-index:2; }
       #avatarCanvas { display:none; z-index:1; pointer-events:none; }
 
