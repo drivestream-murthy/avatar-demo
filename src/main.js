@@ -1,6 +1,6 @@
-
 import StreamingAvatar, { StreamingEvents, TaskType, AvatarQuality } from "@heygen/streaming-avatar";
 
+/* ---------- DOM ---------- */
 const banner = document.getElementById("banner");
 const stageEl = document.getElementById("stage");
 const avatarVideo = document.getElementById("avatarVideo");
@@ -24,10 +24,12 @@ const inputEl = document.getElementById("text");
 const spinner = document.getElementById("spinner");
 const showSpinner = (on=true)=> spinner.style.display = on ? "flex" : "none";
 
+/* ---------- utils ---------- */
 const showError = (msg)=>{ banner.textContent = msg; banner.classList.add("show"); console.error(msg); };
 const hideError = ()=>banner.classList.remove("show");
 const sleep = (ms)=>new Promise(r=>setTimeout(r, ms));
 const titleCase = (s)=>s.replace(/\b\w/g, ch => ch.toUpperCase());
+const normalize = (s)=> (s||"").toLowerCase().replace(/[^a-z0-9\s&]/g," ").replace(/\s+/g," ").trim();
 
 async function getToken(){
   const r = await fetch("/api/token");
@@ -36,7 +38,7 @@ async function getToken(){
   return j.token;
 }
 
-// backgrounds
+/* ---------- backgrounds ---------- */
 const BG = {
   DEFAULT: "/assets/default-image.jpg",
   STANFORD: "/assets/stanford-university-title.jpg",
@@ -56,19 +58,40 @@ function detectUniversity(text){
   return null;
 }
 
-// modules (HCM not mapped to Module 2)
+/* ---------- modules ---------- */
+// Synthesia Module 1; YouTube Module 2
 const SYNTHESIA_ID = "dd552b45-bf27-48c4-96a6-77a2d59e63e7";
 const MODULES = {
   "module 1": { type: "synthesia", url: `https://share.synthesia.io/embeds/videos/${SYNTHESIA_ID}?autoplay=1&mute=1` },
   "module 2": { type: "youtube",   youtubeId: "I2oQuBRNiHs" }
 };
+// HCM is NOT mapped to Module 2
 const MODULE_SYNONYMS = {
-  "module 1": ["erp module 1","module 1","mod 1","m1","one","1","finance","financial","accounting","accounts","ledger","bookkeeping","finance & accounting","finance and accounting","financial accounting","f&a","fa","fin & acc","fin acc","fin/accounting"],
-  "module 2": ["erp module 2","module 2","mod 2","m2","two","2","human resources","human resource","hr","human res","people","talent","talent management","people ops","recruitment","onboarding","payroll","hrms"]
+  "module 1": [
+    "erp module 1","module 1","mod 1","m1","one","1",
+    "finance","financial","accounting","accounts","ledger","bookkeeping",
+    "finance & accounting","finance and accounting","financial accounting",
+    "f&a","fa","fin & acc","fin acc","fin/accounting"
+  ],
+  "module 2": [
+    "erp module 2","module 2","mod 2","m2","two","2",
+    "human resources","human resource","hr","human res","people",
+    "talent","talent management","people ops","recruitment","onboarding","payroll","hrms"
+  ]
 };
-const normalize = (s)=> (s||"").toLowerCase().replace(/[^a-z0-9\s&]/g," ").replace(/\s+/g," ").trim();
+
+/* ---------- fuzzy matching ---------- */
 function levenshtein(a,b){a=a||"";b=b||"";const m=a.length,n=b.length;if(!m)return n;if(!n)return m;const dp=Array.from({length:m+1},(_,i)=>Array(n+1).fill(0));for(let i=0;i<=m;i++)dp[i][0]=i;for(let j=0;j<=n;j++)dp[0][j]=j;for(let i=1;i<=m;i++){for(let j=1;j<=n;j++){const c=a[i-1]===b[j-1]?0:1;dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+c)}}return dp[m][n]}
-function phraseScore(text,phrase){const t=normalize(text),p=normalize(phrase);if(!t||!p)return 0;if(t.includes(p))return 1;const tks=t.split(" "),pks=p.split(" ");let hits=0;for(const pk of pks){if(tks.includes(pk)){hits++;continue}const th=pk.length>=6?2:(pk.length>=4?1:0);if(tks.some(w=>levenshtein(w,pk)<=th))hits++}const overlap=hits/pks.length;const dist=levenshtein(t,p);const whole=p.length?1-(dist/Math.max(p.length,1)):0;return Math.max(overlap*.8+whole*.2,whole*.7)}
+function phraseScore(text,phrase){
+  const t=normalize(text),p=normalize(phrase); if(!t||!p) return 0; if(t.includes(p)) return 1;
+  const tks=t.split(" "),pks=p.split(" "); let hits=0;
+  for(const pk of pks){ if(tks.includes(pk)){hits++;continue}
+    const th=pk.length>=6?2:(pk.length>=4?1:0);
+    if(tks.some(w=>levenshtein(w,pk)<=th)) hits++;
+  }
+  const overlap=hits/pks.length; const dist=levenshtein(t,p); const whole=p.length?1-(dist/Math.max(p.length,1)):0;
+  return Math.max(overlap*.8+whole*.2,whole*.7);
+}
 function resolveModuleKey(text){
   const t = normalize(text);
   if (/\b(erp)?\s*(module)?\s*(1|one)\b/.test(t)) return "module 1";
@@ -81,7 +104,7 @@ function resolveModuleKey(text){
   return best.score>=0.36?best.key:null;
 }
 
-// DS topics
+/* ---------- Drivestream topics ---------- */
 const DS = {
   home:     { keys:["drivestream","website","home"], summary:"Drivestream delivers Oracle Cloud consulting and enterprise transformation.", url:"http://www.drivestream.com/" },
   about:    { keys:["about","company","the company"], summary:"Learn about Drivestream’s mission, leadership and story.", url:"https://www.drivestream.com/the-company/" },
@@ -111,14 +134,14 @@ function resolveDSTopic(text){
   return null;
 }
 
-// YouTube ready
+/* ---------- YouTube ready ---------- */
 let youTubeReady; {
   let _resolve; youTubeReady = new Promise(res => { _resolve = res; });
   const wait = () => { if (window.YT && window.YT.Player) return _resolve(); setTimeout(wait, 50); };
   window.onYouTubeIframeAPIReady = () => _resolve(); wait();
 }
 
-// overlay
+/* ---------- Overlay (video area) ---------- */
 let ytPlayer = null;
 function hideOverlay({resetBg=false}={}) {
   overlayFrame.src = "about:blank";
@@ -129,11 +152,11 @@ function hideOverlay({resetBg=false}={}) {
   if (resetBg) resetToDefault();
 }
 
-// voice
+/* ---------- Voice input ---------- */
 let rec, recSupported, listening=false, autoRestart=true;
 (function detectSR(){ const SR = window.SpeechRecognition || window.webkitSpeechRecognition; recSupported = !!SR; })();
 function setMicUI(on, label){ micChip.classList.toggle("listening", !!on); micLabel.textContent = label || (on ? "listening…" : "voice off"); }
-export function startMic() {
+function startMic() {
   if (!recSupported) { setMicUI(false, "voice not supported (Chrome)"); return; }
   if (rec) return; const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   rec = new SR(); rec.lang = "en-US"; rec.interimResults = false; rec.continuous = true; rec.maxAlternatives = 1;
@@ -144,20 +167,14 @@ export function startMic() {
   try { rec.start(); listening=true; setMicUI(true,"listening…"); } catch {}
 }
 
-// unlock audio
+/* ---------- Unlock audio (and mic) ---------- */
 async function unlockAudioOnce(){
   try{ const AC = window.AudioContext || window.webkitAudioContext; if (AC) { const ctx = new AC(); if (ctx.state === 'suspended') await ctx.resume(); } }catch(e){}
   try{ avatarVideo.muted = false; avatarVideo.volume = 1.0; await avatarVideo.play().catch(()=>{}); }catch(e){}
   try{ startMic(); }catch(e){}
-  window.removeEventListener('pointerdown', unlockAudioOnce);
-  window.removeEventListener('keydown', unlockAudioOnce);
-  window.removeEventListener('touchstart', unlockAudioOnce);
 }
-window.addEventListener('pointerdown', unlockAudioOnce, { once:true });
-window.addEventListener('keydown', unlockAudioOnce,   { once:true });
-window.addEventListener('touchstart', unlockAudioOnce,{ once:true });
 
-// chroma key
+/* ---------- Chroma key + cover fit ---------- */
 function startChromaKeyRendering() {
   const ctx = avatarCanvas.getContext("2d");
   let cw = stageEl.clientWidth, ch = stageEl.clientHeight;
@@ -166,11 +183,13 @@ function startChromaKeyRendering() {
     try {
       const vw = avatarVideo.videoWidth || 640, vh = avatarVideo.videoHeight || 360;
       if (vw && vh) {
+        // cover-fit crop
         const cr = cw / ch, vr = vw / vh;
         let sx=0, sy=0, sw=vw, sh=vh;
         if (vr > cr) { sw = Math.round(vh * cr); sx = Math.round((vw - sw) / 2); }
         else { sh = Math.round(vw / cr); sy = Math.round((vh - sh) / 2); }
         ctx.drawImage(avatarVideo, sx, sy, sw, sh, 0, 0, cw, ch);
+        // green-screen transparency
         const img = ctx.getImageData(0, 0, cw, ch), d = img.data;
         for (let i = 0; i < d.length; i += 4) {
           const r = d[i], g = d[i+1], b = d[i+2];
@@ -185,11 +204,11 @@ function startChromaKeyRendering() {
   new ResizeObserver(() => { cw = stageEl.clientWidth; ch = stageEl.clientHeight; avatarCanvas.width = cw; avatarCanvas.height = ch; }).observe(stageEl);
 }
 
-// state
+/* ---------- App state ---------- */
 const state = { userName:null, universityBg:"DEFAULT", queue:[], autoplay:false, greeted:false, currentModule:null };
 let awaitingConsent=false, consentForMod=null;
 
-// session
+/* ---------- HeyGen session ---------- */
 let avatar, sid=null, sessionActive=false;
 
 async function startSession() {
@@ -197,11 +216,32 @@ async function startSession() {
     const token = await getToken();
     avatar = new StreamingAvatar({ token });
 
-    avatar.on(StreamingEvents.STREAM_READY, (event) => {
+    // AUDIO FIX: ensure unmuted & hidden <audio> fallback
+    avatar.on(StreamingEvents.STREAM_READY, async (event) => {
       const stream = event?.detail?.stream || event?.detail || event?.stream;
       if (!stream) { showError("Stream ready, but no MediaStream."); return; }
+
+      // Attach to <video> for canvas/chroma
       avatarVideo.srcObject = stream;
-      avatarVideo.muted = true; avatarVideo.play().catch(()=>{});
+      avatarVideo.muted = false;
+      avatarVideo.volume = 1.0;
+      try { await avatarVideo.play(); } catch {}
+
+      // Hidden <audio> sink to guarantee sound
+      let audioSink = document.getElementById("audioSink");
+      if (!audioSink) {
+        audioSink = document.createElement("audio");
+        audioSink.id = "audioSink";
+        audioSink.style.display = "none";
+        document.body.appendChild(audioSink);
+      }
+      try {
+        audioSink.srcObject = stream;
+        audioSink.muted = false;
+        audioSink.volume = 1.0;
+        await audioSink.play().catch(()=>{});
+      } catch {}
+
       avatarVideo.onloadedmetadata = () => startChromaKeyRendering();
     });
 
@@ -248,9 +288,10 @@ function speak(text, task=TaskType.REPEAT){ return avatar.speak({ sessionId: sid
 async function speakNext(text){ try { await speak(text, TaskType.REPEAT); } catch(e){ showError("Speak failed: "+(e?.message||e)); } }
 async function ensureSession() { if (!sessionActive) await startSession(); }
 
-// flows
+/* ---------- Flows ---------- */
 function showMenus(){ menuERP.classList.remove("hidden"); menuDS.classList.remove("hidden"); }
 function hideMenus(){ menuERP.classList.add("hidden"); menuDS.classList.add("hidden"); }
+
 function askOrQueueModulesFromUtterance(text) {
   const t = (text||"").toLowerCase();
   const wantsBoth = /\bboth\b|\b1\s*(and|&)\s*2\b|\b2\s*(and|&)\s*1\b/.test(t);
@@ -262,11 +303,13 @@ function askOrQueueModulesFromUtterance(text) {
   if (q.length) { state.queue = [...new Set(q)]; return true; }
   return false;
 }
+
 async function playNextInQueue() {
   const next = state.queue.shift();
   if (!next) { showMenus(); await speakNext("What would you like to do next?"); return; }
   await moduleFlow(next, { skipConsent: state.autoplay });
 }
+
 async function moduleFlow(modKey, { skipConsent=false } = {}) {
   hideMenus(); hideOverlay({resetBg:false});
   const notes = modKey==="module 1"
@@ -284,14 +327,15 @@ async function showModuleInFrame(modKey, { noAwaitStop = true } = {}) {
   const m = MODULES[modKey]; if (!m) return false; state.currentModule = modKey;
   overlay.style.display = "block"; stageEl.classList.add("min"); showSpinner(true);
 
-  if (sessionActive) {
-    if (noAwaitStop) { stopSession("video"); } else { await stopSession("video"); }
-  }
+  // Pause avatar stream (save credits) before loading video
+  if (sessionActive) { if (noAwaitStop) { stopSession("video"); } else { await stopSession("video"); } }
 
   if (m.type === "synthesia") {
     overlayFrame.classList.add("show"); ytContainer.classList.remove("show"); overlayToggle.style.display = "none";
     overlayFrame.onload = () => showSpinner(false);
     overlayFrame.src = m.url;
+
+    // Fallback timeout if embed won't fire an "ended" event
     const ms = VIDEO_TIMEOUT_MS[state.currentModule] ?? 120000;
     setTimeout(async () => {
       if (overlay.style.display !== "none") {
@@ -301,6 +345,7 @@ async function showModuleInFrame(modKey, { noAwaitStop = true } = {}) {
         await playNextInQueue();
       }
     }, ms);
+
   } else if (m.type === "youtube") {
     await youTubeReady;
     overlayFrame.classList.remove("show");
@@ -332,6 +377,7 @@ async function showModuleInFrame(modKey, { noAwaitStop = true } = {}) {
   }
   return true;
 }
+
 closeOverlayBtn.addEventListener("click", async ()=>{
   hideOverlay();
   await ensureSession();
@@ -339,6 +385,7 @@ closeOverlayBtn.addEventListener("click", async ()=>{
   await playNextInQueue();
 });
 
+/* ---------- Drivestream topic flow ---------- */
 async function handleDSTopic(dsKey){
   hideMenus(); hideOverlay();
   const t = DS[dsKey];
@@ -348,7 +395,7 @@ async function handleDSTopic(dsKey){
   showMenus();
 }
 
-// RAG fallback
+/* ---------- RAG fallback to /api/qa ---------- */
 async function askRAG(query){
   try {
     const r = await fetch("/api/qa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) });
@@ -358,11 +405,13 @@ async function askRAG(query){
   } catch { return null; }
 }
 
+/* ---------- Input handling (text + voice) ---------- */
 askForm.addEventListener("submit", async (e)=>{
   e.preventDefault();
   const txt = inputEl.value.trim(); inputEl.value = ""; if (!txt) return;
   hideError(); confirmBar.classList.add("hidden");
 
+  // If waiting for Yes/No to play video
   if (awaitingConsent) {
     const t = (txt||"").toLowerCase();
     if (/\b(yes|yeah|sure|ok|okay|play|start)\b/.test(t)) {
@@ -377,6 +426,7 @@ askForm.addEventListener("submit", async (e)=>{
     }
   }
 
+  // University detection → change BG + prompt menu
   const uniBg = detectUniversity(txt);
   if (uniBg) {
     state.universityBg = uniBg; applyBg(uniBg);
@@ -386,13 +436,16 @@ askForm.addEventListener("submit", async (e)=>{
     showMenus(); return;
   }
 
+  // Module selection via short forms or "both"
   if (askOrQueueModulesFromUtterance(txt)) { await playNextInQueue(); return; }
   const modKey = resolveModuleKey(txt);
   if (modKey) { state.queue = [modKey]; await playNextInQueue(); return; }
 
+  // Drivestream topics (about/partners/meet-the-team/etc.)
   const dsKey = resolveDSTopic(txt);
   if (dsKey) { await handleDSTopic(dsKey); return; }
 
+  // RAG answer from website content (incl. "CEO?", etc.)
   const rag = await askRAG(txt);
   if (rag?.answer) {
     await ensureSession();
@@ -404,16 +457,21 @@ askForm.addEventListener("submit", async (e)=>{
     return;
   }
 
+  // Free talk fallback
   await ensureSession();
   try { await avatar.speak({ sessionId: sid, text: txt, task_type: TaskType.TALK }); }
   catch { await speakNext("There isn’t enough information for that. Try asking about Drivestream, the leadership team, or ERP Module 1/2."); }
 });
 
+/* ---------- Controls ---------- */
+// IMPORTANT: unlock audio before starting session (audio fix)
 sessionFab.addEventListener("click", async ()=>{
   hideError();
+  await unlockAudioOnce().catch(()=>{});
   if (!sessionActive) { await startSession(); }
   else { await stopSession("manual"); }
 });
+
 resetBtn.addEventListener("click", async ()=>{
   await stopSession("reset");
   state.queue = []; state.autoplay=false; state.greeted=false; state.userName=null; state.currentModule=null; state.universityBg="DEFAULT";
@@ -421,4 +479,5 @@ resetBtn.addEventListener("click", async ()=>{
   await startSession();
 });
 
+/* ---------- Boot ---------- */
 resetToDefault();
