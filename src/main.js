@@ -1,24 +1,16 @@
-/* ===== Robust start: multi-path click, local+CDN SDK import, strong logs ===== */
+/* Ultra-simple: one tap starts, CDN SDK import, direct <video> audio */
 
-/* DOM */
-const banner   = document.getElementById("banner");
-const logEl    = document.getElementById("log");
-const video    = document.getElementById("avatarVideo");
-const startBtn = document.getElementById("sessionFab");
-const stopBtn  = document.getElementById("resetBtn");
+// DOM
+const video   = document.getElementById("avatarVideo");
+const overlay = document.getElementById("tapOverlay");
+const banner  = document.getElementById("banner");
+const logEl   = document.getElementById("log");
 
-/* Click tracer: shows if some overlay eats the click */
-document.addEventListener("click", (e)=>{
-  const id = e.target && (e.target.id || e.target.closest?.("[id]")?.id) || "(no id)";
-  log("click:", id);
-});
+// Logs / errors
+function log(...a){ console.log("[avatar]", ...a); if (logEl){ logEl.textContent += a.join(" ")+"\n"; logEl.scrollTop = logEl.scrollHeight; } }
+function err(msg){ console.error(msg); if (banner){ banner.textContent = msg; banner.classList.add("show"); } }
 
-/* Logging & errors */
-function log(...a){ console.log("[avatar]", ...a); if (logEl){ logEl.textContent += a.join(" ") + "\n"; logEl.scrollTop = logEl.scrollHeight; } }
-function showError(msg){ console.error(msg); if (banner){ banner.textContent = msg; banner.classList.add("show"); } }
-function hideError(){ if (banner){ banner.classList.remove("show"); banner.textContent = ""; } }
-
-/* Helpers */
+// Helpers
 async function getToken(){
   log("GET /api/token …");
   const r = await fetch("/api/token");
@@ -28,71 +20,61 @@ async function getToken(){
   return j.token;
 }
 
-async function unlockAudioOnce(){
-  try{
+async function unlockAudio(){
+  try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (AC) { const ctx = new AC(); if (ctx.state === "suspended") await ctx.resume(); }
-  }catch{}
-  try{
-    video.muted = false; video.volume = 1.0; await video.play().catch(()=>{});
-  }catch{}
-}
-
-/* State */
-let avatar = null, sid = null, active = false;
-let StreamingAvatarClass, StreamingEvents, TaskType, AvatarQuality;
-
-/* Dynamic SDK import: try local package first, then CDN fallback */
-async function loadSDK(){
-  if (StreamingAvatarClass) return;
-  let mod = null;
+  } catch {}
   try {
-    log("Importing SDK (local) …");
-    mod = await import("@heygen/streaming-avatar");
-  } catch (e) {
-    log("Local import failed, trying CDN …", e?.message || e);
-    mod = await import("https://cdn.jsdelivr.net/npm/@heygen/streaming-avatar/+esm");
-  }
-  StreamingAvatarClass = mod.StreamingAvatar || mod.default;
-  StreamingEvents = mod.StreamingEvents || mod.default?.StreamingEvents || {};
-  TaskType = mod.TaskType || mod.default?.TaskType || { REPEAT: "REPEAT" };
-  AvatarQuality = mod.AvatarQuality || mod.default?.AvatarQuality || { Medium: "medium", High: "high", Low: "low" };
-  if (!StreamingAvatarClass) throw new Error("Could not resolve StreamingAvatar class from SDK");
-  log("SDK resolved.");
+    video.muted = false; video.volume = 1.0;
+    await video.play().catch(()=>{ /* ignore */ });
+  } catch {}
 }
 
-/* Start/Stop */
-async function startSession(){
-  hideError();
+// State
+let avatar = null, sid = null;
+
+// Start once (idempotent)
+let started = false;
+async function startOnce(){
+  if (started) return; started = true;
+  overlay.classList.add("hidden");
+
   try{
-    log("Start pressed");
-    await unlockAudioOnce();
-    await loadSDK();
+    await unlockAudio();
+
+    // Load SDK from CDN to avoid bundling/export mismatches
+    log("Importing SDK from CDN …");
+    const mod = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/@heygen/streaming-avatar@2/+esm");
+    const StreamingAvatar  = mod.StreamingAvatar || mod.default;
+    const StreamingEvents  = mod.StreamingEvents || mod.default?.StreamingEvents || {};
+    const TaskType         = mod.TaskType || mod.default?.TaskType || { REPEAT: "REPEAT" };
+    const AvatarQuality    = mod.AvatarQuality || mod.default?.AvatarQuality || { Medium: "medium" };
+    if (!StreamingAvatar) throw new Error("Could not resolve StreamingAvatar class");
+
     const token = await getToken();
 
     log("new StreamingAvatar …");
-    avatar = new StreamingAvatarClass({ token });
+    avatar = new StreamingAvatar({ token });
 
-    // Watchdog if STREAM_READY never fires
+    // If STREAM_READY never arrives, warn
     let ready = false;
-    const timer = setTimeout(()=>{
-      if (!ready) showError("No STREAM_READY within 10s. Check autoplay, credits, or firewall.");
-    }, 10000);
+    const watchdog = setTimeout(()=>{ if (!ready) err("No STREAM_READY in 10s. Check firewall/credits/autoplay."); }, 10000);
 
-    const onReadyEvt = (StreamingEvents && (StreamingEvents.STREAM_READY || StreamingEvents.stream_ready)) || "STREAM_READY";
-    avatar.on?.(onReadyEvt, async (ev)=>{
-      ready = true; clearTimeout(timer);
+    const onReady = StreamingEvents?.STREAM_READY || "STREAM_READY";
+    avatar.on?.(onReady, async (ev)=>{
+      ready = true; clearTimeout(watchdog);
       log("STREAM_READY");
+
       const stream = ev?.detail?.stream || ev?.detail || ev?.stream;
-      if (!stream){ showError("STREAM_READY fired but no MediaStream"); return; }
+      if (!stream){ err("STREAM_READY fired but no MediaStream"); return; }
 
       // Attach to <video>
       video.srcObject = stream;
-      video.muted = false;
-      video.volume = 1.0;
+      video.muted = false; video.volume = 1.0;
       try { await video.play(); } catch {}
 
-      // Hidden audio sink for Chrome
+      // Hidden <audio> to satisfy Chrome autoplay
       let sink = document.getElementById("audioSink");
       if (!sink){
         sink = document.createElement("audio");
@@ -102,72 +84,46 @@ async function startSession(){
       }
       try{
         sink.srcObject = stream;
-        sink.muted = false;
-        sink.volume = 1.0;
+        sink.muted = false; sink.volume = 1.0;
         await sink.play().catch(()=>{});
       }catch{}
     });
 
-    avatar.on?.(StreamingEvents?.ERROR || "ERROR", (e)=> showError("SDK ERROR: " + JSON.stringify(e)));
-    avatar.on?.(StreamingEvents?.STREAM_DISCONNECTED || "STREAM_DISCONNECTED", ()=>{
-      log("STREAM_DISCONNECTED"); active=false; sid=null; startBtn.textContent="▶ Start";
-    });
+    avatar.on?.(StreamingEvents?.ERROR || "ERROR", (e)=> err("SDK ERROR: " + JSON.stringify(e)));
+    avatar.on?.(StreamingEvents?.STREAM_DISCONNECTED || "STREAM_DISCONNECTED", ()=> log("STREAM_DISCONNECTED"));
 
     log("createStartAvatar …");
     const session = await avatar.createStartAvatar({
       avatarName: "default",
       language: "en",
-      quality: AvatarQuality.Medium,  // Medium while testing
-      activityIdleTimeout: 30,
-      knowledgeBase: "Greet once. Be concise. This is a minimal click-safe build."
-    }).catch((e)=> {
-      showError("createStartAvatar failed: " + (e?.message || e));
-      throw e;
-    });
+      quality: AvatarQuality.Medium,     // keep credits low while testing
+      activityIdleTimeout: 30,           // your idle policy
+      knowledgeBase: "Greet once. Be concise. Diagnostic start."
+    }).catch((e)=>{ err("createStartAvatar failed: " + (e?.message || e)); throw e; });
 
     sid = session?.session_id;
-    if (!sid) throw new Error("No session_id in response");
-    active = true;
-    startBtn.textContent = "■ Stop";
+    if (!sid) throw new Error("No session_id");
     log("Session started:", sid);
 
-    // Audible line to confirm sound
-    await avatar.speak({ sessionId: sid, text: "Hello! If you can hear me, streaming is working.", task_type: TaskType.REPEAT });
+    // Say one line so you can hear it
+    await avatar.speak({
+      sessionId: sid,
+      text: "Hello! If you can hear me, everything is working.",
+      task_type: TaskType.REPEAT
+    });
     log("Initial speak sent.");
   }catch(e){
-    showError("Failed to start: " + (e?.message || e));
-    console.error(e);
+    err("Failed to start: " + (e?.message || e));
+    started = false; // allow retry if something failed
+    overlay.classList.remove("hidden");
   }
 }
 
-async function stopSession(){
-  try{
-    if (sid){
-      await fetch("/api/stop", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ sessionId: sid }) });
-    }
-  }catch{}
-  try{ avatar?.disconnect?.(); }catch{}
-  active=false; sid=null; startBtn.textContent="▶ Start";
-  log("Stopped.");
-}
+// Bind: any tap inside the stage starts it
+overlay.addEventListener("click", startOnce);
 
-/* Wire up (redundant on purpose) */
-if (startBtn) startBtn.addEventListener("click", startSession);
-if (stopBtn)  stopBtn.addEventListener("click",  stopSession);
+// Also: first pointerdown anywhere on the page (backup)
+document.addEventListener("pointerdown", ()=> startOnce(), { once:true, capture:true });
 
-/* Global helpers so you can start from console even if button is blocked */
-window._start = startSession;
-window._stop  = stopSession;
-
-/* Global “first click anywhere” fallback to ensure a user gesture fires start */
-(function bindGlobalFirstGesture(){
-  const once = async (e) => {
-    document.removeEventListener("pointerdown", once, true);
-    log("global pointerdown → start");
-    try { await startSession(); } catch {}
-  };
-  document.addEventListener("pointerdown", once, true);
-})();
-
-/* Boot */
-log("Loaded. Click Start once or run window._start().");
+// Debug helper
+log("Loaded. Tap the stage once to start.");
