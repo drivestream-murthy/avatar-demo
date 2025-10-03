@@ -1,60 +1,37 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Avatar — Minimal Auto Start</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>">
-    <style>
-      :root { --w: 420px; }
-      * { box-sizing: border-box; }
-      body {
-        font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-        background:#0f1115; color:#eaeef5; display:flex; justify-content:center; align-items:flex-start;
-        padding:16px; min-height:100vh;
-      }
-      #app { width:min(100%, var(--w)); }
-      #stage {
-        width:100%; aspect-ratio:9/16; background:#161b22; border-radius:16px; overflow:hidden;
-        position:relative; box-shadow:0 8px 30px rgba(0,0,0,.35);
-      }
-      #avatarVideo { position:absolute; inset:0; background:#000; }
-      #controls { margin-top:10px; display:flex; gap:8px; }
-      button {
-        padding:10px 12px; border-radius:10px; border:1px solid #2a2f3a;
-        background:#151a28; color:#eaeef5; cursor:pointer;
-      }
-      button:hover { background:#1c2336; }
-      #banner {
-        display:none; margin-top:10px; padding:10px; border-radius:10px;
-        background:#2b132a; border:1px solid #6a2a67; color:#ffd3e6; font-size:14px; white-space:pre-wrap;
-      }
-      #banner.show { display:block; }
-      #log {
-        margin-top:10px; font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px;
-        background:#0b0e14; color:#c9d1d9; padding:10px; border-radius:10px; border:1px solid #2a2f3a;
-        height:180px; overflow:auto;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="app">
-      <h1 style="margin:0 0 8px 0;">Avatar — Minimal Auto Start</h1>
-
-      <div id="stage">
-        <!-- Start muted so autoplay is allowed -->
-        <video id="avatarVideo" playsinline autoplay muted></video>
-      </div>
-
-      <div id="controls">
-        <button id="unmuteBtn">🔊 Unmute</button>
-        <button id="stopBtn">■ Stop</button>
-      </div>
-
-      <div id="banner"></div>
-      <div id="log"></div>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Avatar — Portrait ERP Demo</title>
+  <style>
+    :root { --w: 420px; }
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0f1115;color:#eaeef5;display:flex;justify-content:center;padding:16px}
+    #app{width:min(100%,var(--w))}
+    #stage{width:100%;aspect-ratio:9/16;background:#161b22;border-radius:16px;overflow:hidden;position:relative;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+    #avatarVideo{position:absolute;inset:0;background:#000}
+    #controls{margin-top:10px;display:flex;gap:8px}
+    button{padding:10px 12px;border-radius:10px;border:1px solid #2a2f3a;background:#151a28;color:#eaeef5;cursor:pointer}
+    button:hover{background:#1c2336}
+    #banner{display:none;margin-top:10px;padding:10px;border-radius:10px;background:#2b132a;border:1px solid #6a2a67;color:#ffd3e6;font-size:14px;white-space:pre-wrap}
+    #banner.show{display:block}
+    #log{margin-top:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:#0b0e14;color:#c9d1d9;padding:10px;border-radius:10px;border:1px solid #2a2f3a;height:140px;overflow:auto}
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1 style="margin:0 0 8px 0;">Avatar — Portrait ERP Demo</h1>
+    <div id="stage">
+      <video id="avatarVideo" playsinline autoplay></video>
     </div>
-
-    <script type="module" src="/src/main.js"></script>
-  </body>
+    <div id="controls">
+      <button id="startBtn">▶ Start</button>
+      <button id="stopBtn">■ Stop</button>
+    </div>
+    <div id="banner"></div>
+    <div id="log"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
 </html>
