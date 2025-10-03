@@ -1,11 +1,17 @@
-/* ========= Minimal, robust start with dynamic SDK import ========= */
+/* ===== Robust start: logs every click, inline + listener handlers, dynamic SDK import ===== */
 
 /* DOM */
-const banner = document.getElementById("banner");
-const logEl  = document.getElementById("log");
-const video  = document.getElementById("avatarVideo");
+const banner   = document.getElementById("banner");
+const logEl    = document.getElementById("log");
+const video    = document.getElementById("avatarVideo");
 const startBtn = document.getElementById("sessionFab");
 const stopBtn  = document.getElementById("resetBtn");
+
+/* Click tracer: shows if some overlay eats the click */
+document.addEventListener("click", (e)=>{
+  const id = e.target && (e.target.id || e.target.closest?.("[id]")?.id) || "(no id)";
+  log("click:", id);
+});
 
 /* Logging & errors */
 function log(...a){ console.log("[avatar]", ...a); if (logEl){ logEl.textContent += a.join(" ") + "\n"; logEl.scrollTop = logEl.scrollHeight; } }
@@ -36,11 +42,10 @@ async function unlockAudioOnce(){
 let avatar = null, sid = null, active = false;
 let StreamingAvatarClass, StreamingEvents, TaskType, AvatarQuality;
 
-/* Dynamically import the SDK and support both export styles */
+/* Dynamic SDK import (works with default or named exports) */
 async function loadSDK(){
   if (StreamingAvatarClass) return;
   const mod = await import("@heygen/streaming-avatar");
-  // tolerate both export styles
   StreamingAvatarClass = mod.StreamingAvatar || mod.default;
   StreamingEvents = mod.StreamingEvents || mod.default?.StreamingEvents || {};
   TaskType = mod.TaskType || mod.default?.TaskType || { REPEAT: "REPEAT" };
@@ -52,6 +57,7 @@ async function loadSDK(){
 async function startSession(){
   hideError();
   try{
+    log("Start pressed");
     await unlockAudioOnce();
     await loadSDK();
     const token = await getToken();
@@ -59,15 +65,14 @@ async function startSession(){
     log("new StreamingAvatar …");
     avatar = new StreamingAvatarClass({ token });
 
-    // Watchdog: if STREAM_READY never fires, tell the user
+    // Watchdog if STREAM_READY never fires
     let ready = false;
-    const readyWatch = setTimeout(()=>{
-      if (!ready) showError("No STREAM_READY within 10s. Possible causes: network blocks, credits exhausted, or browser autoplay.");
+    const timer = setTimeout(()=>{
+      if (!ready) showError("No STREAM_READY within 10s. Check autoplay, credits, or firewall.");
     }, 10000);
 
-    // When media stream arrives
-    avatar.on(StreamingEvents?.STREAM_READY || "STREAM_READY", async (ev)=>{
-      ready = true; clearTimeout(readyWatch);
+    avatar.on?.(StreamingEvents?.STREAM_READY || "STREAM_READY", async (ev)=>{
+      ready = true; clearTimeout(timer);
       log("STREAM_READY");
       const stream = ev?.detail?.stream || ev?.detail || ev?.stream;
       if (!stream){ showError("STREAM_READY fired but no MediaStream"); return; }
@@ -78,7 +83,7 @@ async function startSession(){
       video.volume = 1.0;
       try { await video.play(); } catch {}
 
-      // Hidden <audio> sink to guarantee audible speech (Chrome)
+      // Hidden audio sink for Chrome
       let sink = document.getElementById("audioSink");
       if (!sink){
         sink = document.createElement("audio");
@@ -94,10 +99,9 @@ async function startSession(){
       }catch{}
     });
 
-    // Extra diagnostics
     avatar.on?.(StreamingEvents?.ERROR || "ERROR", (e)=> showError("SDK ERROR: " + JSON.stringify(e)));
     avatar.on?.(StreamingEvents?.STREAM_DISCONNECTED || "STREAM_DISCONNECTED", ()=>{
-      log("STREAM_DISCONNECTED"); active = false; sid = null; startBtn.textContent = "▶ Start";
+      log("STREAM_DISCONNECTED"); active=false; sid=null; startBtn.textContent="▶ Start";
     });
 
     log("createStartAvatar …");
@@ -106,20 +110,19 @@ async function startSession(){
       language: "en",
       quality: AvatarQuality.Medium,  // Medium while testing
       activityIdleTimeout: 30,
-      knowledgeBase: "Greet once. Be concise. This is a clean diagnostic."
-    }).catch(async (e)=> {
-      // surface HeyGen backend errors clearly
-      const msg = e?.message || String(e);
-      showError("createStartAvatar failed: " + msg);
+      knowledgeBase: "Greet once. Be concise. This is a minimal click-safe build."
+    }).catch((e)=> {
+      showError("createStartAvatar failed: " + (e?.message || e));
       throw e;
     });
 
     sid = session?.session_id;
     if (!sid) throw new Error("No session_id in response");
-    active = true; startBtn.textContent = "■ Stop";
+    active = true;
+    startBtn.textContent = "■ Stop";
     log("Session started:", sid);
 
-    // Quick audible line
+    // Audible line to confirm sound
     await avatar.speak({ sessionId: sid, text: "Hello! If you can hear me, streaming is working.", task_type: TaskType.REPEAT });
     log("Initial speak sent.");
   }catch(e){
@@ -139,12 +142,13 @@ async function stopSession(){
   log("Stopped.");
 }
 
-/* UI */
-startBtn.addEventListener("click", async ()=>{
-  if (!active) await startSession();
-  else         await stopSession();
-});
-stopBtn.addEventListener("click", stopSession);
+/* Wire up (redundant on purpose) */
+if (startBtn) startBtn.addEventListener("click", startSession);
+if (stopBtn)  stopBtn.addEventListener("click",  stopSession);
+
+/* Expose console helpers (so you can run them even if clicks are swallowed) */
+window._start = startSession;
+window._stop  = stopSession;
 
 /* Boot */
-log("Loaded. Click Start once.");
+log("Loaded. Click Start once or run window._start().");
