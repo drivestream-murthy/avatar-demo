@@ -3,8 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Avatar — Tap to Start</title>
-    <!-- Quiet the favicon 404 -->
+    <title>Avatar — Minimal Auto Start</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>">
     <style>
       :root { --w: 420px; }
@@ -15,32 +14,22 @@
         padding:16px; min-height:100vh;
       }
       #app { width:min(100%, var(--w)); }
-
       #stage {
         width:100%; aspect-ratio:9/16; background:#161b22; border-radius:16px; overflow:hidden;
         position:relative; box-shadow:0 8px 30px rgba(0,0,0,.35);
       }
-
-      /* Raw video fills the stage and is above everything */
-      #avatarVideo { position:absolute; inset:0; z-index:2; background:#000; }
-
-      /* Full-screen overlay inside stage: guarantees a valid user gesture */
-      #tapOverlay {
-        position:absolute; inset:0; z-index:3; background:rgba(0,0,0,.55);
-        display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none;
+      #avatarVideo { position:absolute; inset:0; background:#000; }
+      #controls { margin-top:10px; display:flex; gap:8px; }
+      button {
+        padding:10px 12px; border-radius:10px; border:1px solid #2a2f3a;
+        background:#151a28; color:#eaeef5; cursor:pointer;
       }
-      #tapOverlay .pill {
-        background:#1f2937; border:1px solid #334155; color:#eaeef5; padding:12px 16px; border-radius:999px;
-        box-shadow:0 6px 20px rgba(0,0,0,.35); font-weight:600;
-      }
-      #tapOverlay.hidden { display:none; }
-
+      button:hover { background:#1c2336; }
       #banner {
         display:none; margin-top:10px; padding:10px; border-radius:10px;
         background:#2b132a; border:1px solid #6a2a67; color:#ffd3e6; font-size:14px; white-space:pre-wrap;
       }
       #banner.show { display:block; }
-
       #log {
         margin-top:10px; font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px;
         background:#0b0e14; color:#c9d1d9; padding:10px; border-radius:10px; border:1px solid #2a2f3a;
@@ -50,21 +39,22 @@
   </head>
   <body>
     <div id="app">
-      <h1 style="margin:0 0 8px 0;">Avatar — Tap to Start</h1>
+      <h1 style="margin:0 0 8px 0;">Avatar — Minimal Auto Start</h1>
 
       <div id="stage">
-        <!-- IMPORTANT: no "muted" attribute -->
-        <video id="avatarVideo" playsinline autoplay></video>
+        <!-- Start muted so autoplay is allowed -->
+        <video id="avatarVideo" playsinline autoplay muted></video>
+      </div>
 
-        <!-- One simple overlay to get a user-gesture -->
-        <div id="tapOverlay"><div class="pill">▶ Tap to start</div></div>
+      <div id="controls">
+        <button id="unmuteBtn">🔊 Unmute</button>
+        <button id="stopBtn">■ Stop</button>
       </div>
 
       <div id="banner"></div>
       <div id="log"></div>
     </div>
 
-    <!-- Vite will rewrite this in prod to /assets/*.js -->
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
