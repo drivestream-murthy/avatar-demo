@@ -3,51 +3,70 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Avatar Demo — Diagnostic</title>
+    <title>Avatar Demo — Clean Start</title>
     <style>
       :root { --w: 420px; }
       * { box-sizing: border-box; }
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#0f1115; color:#eaeef5; display:flex; justify-content:center; padding:16px; }
-      #app { width:min(100%, var(--w)); }
-      #stage { width:100%; aspect-ratio:9/16; background:#161b22; border-radius:16px; overflow:hidden; position:relative; box-shadow:0 8px 30px rgba(0,0,0,.35); }
-      #avatarVideo, #avatarCanvas { position:absolute; inset:0; }
-      /* Force the video to be visible above the canvas */
-#avatarVideo { opacity: 1 !important; z-index: 2; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        background: #0f1115; color: #eaeef5; display: flex; justify-content: center; padding: 16px;
+      }
+      #app { width: min(100%, var(--w)); }
 
-/* Temporarily hide the canvas to rule it out */
-#avatarCanvas { display: none; z-index: 1; pointer-events: none; }
+      #stage {
+        width: 100%; aspect-ratio: 9/16; background: #161b22; border-radius: 16px;
+        overflow: hidden; position: relative; box-shadow: 0 8px 30px rgba(0,0,0,.35);
+      }
 
-      #controls { margin-top:10px; display:flex; gap:8px; }
-      button { padding:10px 12px; border-radius:10px; border:1px solid #2a2f3a; background:#151a28; color:#eaeef5; cursor:pointer; }
-      button:hover { background:#1c2336; }
-      #banner { display:none; margin-top:10px; padding:10px; border-radius:10px; background:#2b132a; border:1px solid #6a2a67; color:#ffd3e6; font-size:14px; white-space:pre-wrap; }
-      #banner.show { display:block; }
-      .muted { opacity:.75; font-size:12px; }
-      #log { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; background:#0b0e14; color:#c9d1d9; padding:10px; border-radius:10px; border:1px solid #2a2f3a; height:180px; overflow:auto; margin-top:10px; }
+      /* Both elements fill the stage */
+      #avatarVideo, #avatarCanvas { position: absolute; inset: 0; }
+
+      /* IMPORTANT: make the raw video visible above canvas */
+      #avatarVideo { opacity: 1 !important; z-index: 2; }
+      /* TEMP for debugging: hide the canvas so it can't cover video */
+      #avatarCanvas { display: none; z-index: 1; pointer-events: none; }
+
+      #controls { margin-top: 10px; display: flex; gap: 8px; }
+      button {
+        padding: 10px 12px; border-radius: 10px; border: 1px solid #2a2f3a;
+        background: #151a28; color: #eaeef5; cursor: pointer;
+      }
+      button:hover { background: #1c2336; }
+
+      #banner {
+        display: none; margin-top: 10px; padding: 10px; border-radius: 10px;
+        background: #2b132a; border: 1px solid #6a2a67; color: #ffd3e6; font-size: 14px; white-space: pre-wrap;
+      }
+      #banner.show { display: block; }
+
+      #log {
+        margin-top: 10px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px;
+        background:#0b0e14; color:#c9d1d9; padding:10px; border-radius:10px; border:1px solid #2a2f3a;
+        height:180px; overflow:auto;
+      }
     </style>
   </head>
   <body>
     <div id="app">
-      <h1>Avatar Demo — Diagnostic</h1>
-      <p class="muted">Click Start once. Watch the log below; each step prints as it succeeds.</p>
+      <h1>Avatar Demo — Clean Start</h1>
+      <p style="opacity:.75;font-size:12px;margin-top:-6px">Click Start once. You should see & hear the avatar. The log shows each step.</p>
 
       <div id="stage">
-        <!-- IMPORTANT: no muted attribute -->
+        <!-- IMPORTANT: no "muted" attribute -->
         <video id="avatarVideo" playsinline autoplay></video>
         <canvas id="avatarCanvas"></canvas>
       </div>
 
       <div id="controls">
-        <button id="startBtn">▶ Start</button>
-        <button id="stopBtn">■ Stop</button>
-        <button id="testSpeakBtn">💬 Test Speak</button>
+        <button id="sessionFab">▶ Start</button>
+        <button id="resetBtn">■ Stop</button>
       </div>
 
       <div id="banner"></div>
       <div id="log"></div>
     </div>
 
-    <!-- Your Vite build will rewrite this to /assets/*.js on production -->
+    <!-- Vite will rewrite this to /assets/*.js in production -->
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
