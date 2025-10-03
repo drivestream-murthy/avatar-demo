@@ -1,18 +1,20 @@
 export default async function handler(req, res) {
-  const apiKey = process.env.HEYGEN_API_KEY;
-  if (!apiKey) return res.status(400).json({ error: "Missing HEYGEN_API_KEY env var" });
   try {
+    const key = process.env.HEYGEN_API_KEY;
+    if (!key) return res.status(500).json({ error: "HEYGEN_API_KEY is missing" });
+
     const r = await fetch("https://api.heygen.com/v1/streaming.create_token", {
       method: "POST",
-      headers: { "X-Api-Key": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({})
+      headers: { "Content-Type": "application/json", "X-Api-Key": key },
+      body: "{}"
     });
-    const body = await r.json().catch(()=> ({}));
-    if (!r.ok || !body?.data?.token) {
-      return res.status(r.status || 500).json({ error: body?.message || "Token create failed", raw: body });
-    }
-    return res.status(200).json({ token: body.data.token });
-  } catch (e) {
-    return res.status(500).json({ error: "Server error", detail: String(e) });
-  }
+
+    const j = await r.json().catch(() => null);
+    if (!r.ok) return res.status(r.status).json({ error: j?.message || "HeyGen token error", details: j });
+
+    const token = j?.data?.token || j?.token || j?.data;
+    if (!token) return res.status(500).json({ error: "No token returned", raw: j });
+
+    res.status(200).json({ token });
+  } catch (e) { res.status(500).json({ error: String(e?.message || e) }); }
 }
